@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webpage Layout</title>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var titleInput = document.getElementById('title-input');
+            var messageInput = document.getElementById('message-input');
+            var sendButton = document.getElementById('send-button');
+            var progressBar = document.getElementById('progress');
+            var progressBarContainer = document.getElementById('progress-bar');
+            var footer = document.querySelector('footer');
+            var moveAllUsersButton = document.getElementById('move-all-users-button');
+            var moveSelectedUsersButton = document.getElementById('move-selected-users-button');
+            var moveSelectedBackButton = document.getElementById('move-selected-back-button');
+            var userList = document.getElementById('user-list');
+            var userListPart3 = document.getElementById('user-list-part3');
+            var searchUserList = document.getElementById('search-user-list');
+            var searchUserListPart3 = document.getElementById('search-user-list-part3');
+            var selectAllUsersButton = document.getElementById('select-all-users');
+            var selectAllUsersPart3Button = document.getElementById('select-all-users-part3');
+            var originalUserCount = 0; // Variable to store the original total number of users
+            var emptyMessagePart1 = document.getElementById('empty-message-part1');
+            var emptyMessagePart3 = document.getElementById('empty-message-part3');
+            var templateDropdown = document.getElementById('templateDropdown');
+ 
+ 
+            // Hide footer and progress bar initially
+            footer.style.display = 'none';
+       
+            function toggleSendButton() {
+                var usersInPart3 = userListPart3.querySelectorAll('li').length > 0;
+                var titleFilled = titleInput.value.trim() !== '';
+                var messageFilled = messageInput.value.trim() !== '';
+       
+                sendButton.disabled = !(usersInPart3 && titleFilled && messageFilled)
+            }
+       
+       
+            titleInput.addEventListener('input', toggleSendButton);
+            messageInput.addEventListener('input', toggleSendButton);
+       
+            sendButton.addEventListener('click', function() {
+    var title = titleInput.value;
+    var message = messageInput.value;
+    var users = Array.from(userListPart3.querySelectorAll('li')).map(li => li.textContent.trim());
+    var numberOfUsers = users.length;
+ 
+    var dialogMessage = 'Title: ' + title + '\nMessage: ' + message + '\nNumber of users: ' + numberOfUsers;
+    var dialog = confirm(dialogMessage);
+ 
+    if (dialog) {
+        appendToJsonFile(users,title, message); // Append the new data to the JSON file
+        showFooterAndProgressBar(numberOfUsers); // Show footer and progress bar based on users in part3
+    }
+});
+ 
+function appendToJsonFile(newusers,title, message) {
+    var newData = {
+        "Title": title,
+        "Message": message,
+        "users":newusers
+    };
+ 
+    fetch('http://127.0.0.1:5000/api/data',{
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(newData)
+            })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok ' + response.statusText);
+            }
+            return response.json();
+        })
+        .then(existingData => {
+            existingData.push(newData);
+ 
+            fetch('http://127.0.0.1:5000/api/data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(existingData)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok ' + response.statusText);
+                }
+                return response.json();
+            })
+            .then(responseData => {
+                console.log('Success:', responseData);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        })
+        .catch(error => {
+            console.error('Error fetching existing data:', error);
+        });
+}
+ 
+ 
+            function showFooterAndProgressBar(usersInPart3) {
+                footer.style.display = 'block'; // Show footer
+                progressBarContainer.classList.remove('hidden'); // Show progress bar
+                var width = 0;
+                var targetWidth = 100;
+                var interval = setInterval(function() {
+                    if (width >= targetWidth) {
+                        clearInterval(interval);
+                        showSaveTemplateDialog(); // Display save template dialog after progress bar completes
+                    } else {
+                        width++;
+                        progressBar.style.width = width + '%';
+                    }
+                }, 20); // Adjust interval time as needed
+            }
+            function saveTemplatesJSON(title, message) {
+    var newEntry = {
+        template:[
+            {title:title,message:message}
+        ]
+       
+    };
+ 
+    try {
+        const response = fetch('http://127.0.0.1:5000/pushtemplatetodb', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(newEntry)
+        });
+ 
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+ 
+        const responseData =  response.json();
+        console.log('Success:', responseData);
+      }
+    catch(error) {
+        console.error('Error:', error);
+    };
+}
+ 
+// Function to display the save template dialog
+        function showSaveTemplateDialog() {
+            var title = titleInput.value;
+            var message = messageInput.value;
+ 
+            var dialogMessage = 'Do you want to save this as template?\n\nTitle: ' + title + '\nMessage: ' + message;
+            var dialogResult = window.confirm(dialogMessage);
+ 
+            if (dialogResult) {
+                saveTemplatesJSON(title, message)
+ 
+                // Perform the action to save the template here
+            }
+            // Reload the page after the dialog box closes
+            location.reload();
+        }
+       
+             // Adjust interval time as needed
+           
+ 
+       
+            // Move all users from Part 1 to Part 3
+            moveAllUsersButton.addEventListener('click', function() {
+                var listItems = Array.from(userList.children); // Create an array from the list items
+                listItems.forEach(function(listItem) {
+                    listItem.querySelector('input[type="checkbox"]').checked = false;
+                    userListPart3.appendChild(listItem);
+                });
+                moveAllUsersButton.style.display = 'none'; // Hide the ALL button
+                resetSelectAllButtons(); // Reset the select all buttons
+                toggleSendButton(); // Check if send button should be enabled
+                updateEmptyMessage();
+            });
+            // Move selected users from Part 1 to Part 3
+            moveSelectedUsersButton.addEventListener('click', function() {
+                var checkboxes = userList.querySelectorAll('input[type="checkbox"]:checked');
+                checkboxes.forEach(function(checkbox) {
+                    var listItem = checkbox.parentElement;
+                    checkbox.checked = false; // Uncheck the checkbox
+                    userListPart3.appendChild(listItem);
+                });
+                resetSelectAllButtons(); // Reset the select all buttons
+                toggleSendButton(); // Check if send button should be enabled
+                updateEmptyMessage();
+            });
+       
+            // Move selected users from Part 3 to Part 1
+            moveSelectedBackButton.addEventListener('click', function() {
+                var checkboxes = userListPart3.querySelectorAll('input[type="checkbox"]:checked');
+                checkboxes.forEach(function(checkbox) {
+                    var listItem = checkbox.parentElement;
+                    checkbox.checked = false; // Uncheck the checkbox
+                    userList.appendChild(listItem);
+                });
+                resetSelectAllButtons(); // Reset the select all buttons
+                toggleSendButton(); // Check if send button should be enabled
+                updateEmptyMessage();
+            });
+       
+            // Fetch and display usernames
+       
+            fetch('http://127.0.0.1:5000/selecteduser')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok ' + response.statusText);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    data.usernames.forEach(user => {
+                        var li = document.createElement('li');
+                        li.innerHTML = `<input type="checkbox"> ${user.userid} - ${user.username}`;
+                        userList.appendChild(li);
+                    });
+                    originalUserCount = data.usernames.length; // Set the original total number of users
+                    updateEmptyMessage(); // Check and update empty messages
+                })
+                .catch(error => {
+                    console.error('Error fetching usernames:', error);
+                });
+ 
+ // Fetch and populate the template dropdown
+ fetch('http://127.0.0.1:5000/templatesfetchfromdb')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok ' + response.statusText);
+                }
+                return response.json();
+            })
+            .then(templates => {
+                templates.forEach(template => {
+                    const option = document.createElement('option');
+                    option.value = template.title;
+                    option.textContent = template.title; // Use textContent to set the option's text
+                    templateDropdown.appendChild(option);
+                });
+                toggleSendButton(); // Check if send button should be enabled
+            })
+            .catch(error => console.error('Error loading final templates:', error));
+ 
+        // Handle dropdown change event
+        templateDropdown.addEventListener('change', function() {
+            const selectedTitle = this.value;
+            if (selectedTitle) {
+                fetch(`http://127.0.0.1:5000/templatesfetchfromdb`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok ' + response.statusText);
+                        }
+                        return response.json();
+                    })
+                    .then(templates => {
+                        const selectedTemplate = templates.find(template => template.title === selectedTitle);
+                        if (selectedTemplate) {
+                            titleInput.value = selectedTemplate.title;
+                            messageInput.value = selectedTemplate.message;
+                            toggleSendButton(); // Check if send button should be enabled
+                        }
+                    })
+                    .catch(error => console.error('Error fetching template details:', error));
+            } else {
+                titleInput.value = '';
+                messageInput.value = '';
+                toggleSendButton(); // Check if send button should be enabled
+            }
+        });
+ 
+ 
+ 
+       
+            // Search function
+            function searchUsers(searchInput, list) {
+                var filter = searchInput.value.toLowerCase();
+                var listItems = list.getElementsByTagName('li');
+                Array.from(listItems).forEach(function(item) {
+                    var text = item.textContent || item.innerText;
+                    if (text.toLowerCase().indexOf(filter) > -1) {
+                        item.style.display = '';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+            }
+       
+            searchUserList.addEventListener('input', function() {
+                searchUsers(searchUserList, userList);
+            });
+       
+            searchUserListPart3.addEventListener('input', function() {
+                searchUsers(searchUserListPart3, userListPart3);
+            });
+       
+            // Select all checkboxes function
+            function selectAllCheckboxes(button, list) {
+                var listItems = list.getElementsByTagName('li');
+                var allChecked = button.textContent === 'Deselect All';
+                Array.from(listItems).forEach(function(item) {
+                    var itemCheckbox = item.querySelector('input[type="checkbox"]');
+                    itemCheckbox.checked = !allChecked;
+                });
+                button.textContent = allChecked ? 'Select All' : 'Deselect All';
+            }
+       
+            selectAllUsersButton.addEventListener('click', function() {
+                selectAllCheckboxes(selectAllUsersButton, userList);
+            });
+       
+            selectAllUsersPart3Button.addEventListener('click', function() {
+                selectAllCheckboxes(selectAllUsersPart3Button, userListPart3);
+            });
+       
+            // Function to reset the select all buttons
+            function resetSelectAllButtons() {
+                selectAllUsersButton.textContent = 'Select All';
+                selectAllUsersPart3Button.textContent = 'Select All';
+            }
+       
+            // Function to update the empty message and toggle visibility of search and select all buttons
+            function updateEmptyMessage() {
+                var userCountPart1 = userList.querySelectorAll('li').length;
+                var userCountPart3 = userListPart3.querySelectorAll('li').length;
+ 
+                emptyMessagePart1.style.display = userCountPart1 === 0 ? 'block' : 'none';
+                emptyMessagePart3.style.display = userCountPart3 === 0 ? 'block' : 'none';
+                searchUserList.style.display = userCountPart1 === 0 ? 'none' : 'block';
+                searchUserListPart3.style.display = userCountPart3 === 0 ? 'none' : 'block';
+                selectAllUsersButton.style.display = userCountPart1 === 0 ? 'none' : 'block';
+                selectAllUsersPart3Button.style.display = userCountPart3 === 0 ? 'none' : 'block';
+ 
+                // Toggle the visibility of the ALL button based on the user count in part 1
+                moveAllUsersButton.style.display = userCountPart1 === 0 ? 'none' : 'block';
+            }
+ 
+            // Initial update of the empty messages
+            updateEmptyMessage();  
+});
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+ 
+        header {
+            background-color: #333;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+        }
+ 
+        header h1 {
+            margin: 0;
+            padding-bottom: 10px;
+        }
+ 
+        .header-inputs {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 10px;
+        }
+ 
+        .header-inputs input {
+            margin: 10px 0;
+            padding: 10px;
+            width: 250px;
+            font-size: 16px;
+        }
+ 
+        .header-inputs button {
+            padding: 10px 20px;
+            background-color: #555;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+ 
+        .header-inputs button:disabled {
+            background-color: #f09c9c;
+            cursor: not-allowed;
+        }
+ 
+        .input-group {
+            display: flex;
+            align-items: center;
+        }
+ 
+        .input-group input, .input-group select {
+            margin-right: 10px;
+        }
+ 
+        #message-input {
+            margin-left: -40px; /* Adjust this value to move the message input left */
+        }
+ 
+        #send-button {
+            margin-left: -40px; /* Adjust this value to move the send button left */
+        }
+ 
+        .input-group select {
+            width: 20px; /* Set a fixed width for the dropdown */
+            max-width: 20px; /* Ensure it doesn't exceed the set width */
+            min-width: 20px; /* Ensure it doesn't shrink below the set width */
+        }
+ 
+        .container {
+            display: flex;
+            justify-content: space-around;
+            padding: 20px;
+        }
+ 
+        .part {
+            flex: 1;
+            margin: 0 10px;
+            background-color: #f4f4f4;
+            padding: 20px;
+            text-align: center;
+            height: 400px;
+            overflow-y: auto;
+        }
+ 
+        .part-1,
+        .part-3 {
+            text-align: left;
+        }
+ 
+        .part-1 ul,
+        .part-3 ul {
+            list-style-type: none;
+            padding: 0;
+        }
+ 
+        .part-1 li,
+        .part-3 li {
+            margin-bottom: 10px;
+        }
+ 
+        .part-2 {
+            flex: 0 0 75px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: white;
+        }
+ 
+        .part-button {
+            margin: 10px 0;
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #555;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+ 
+        footer {
+            background-color: #333;
+            color: white;
+            text-align: center;
+            padding: 10px;
+            position: fixed;
+            width: 100%;
+            bottom: 0;
+        }
+ 
+        .footer-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+ 
+        .progress-bar {
+            width: 80%;
+            background-color: #f3f3f3;
+            border-radius: 0;
+            overflow: hidden;
+            margin-top: 10px;
+            position: relative;
+        }
+ 
+        .progress {
+            height: 30px;
+            background-color: #4caf50;
+            width: 0;
+            transition: width 0.4s ease;
+        }
+ 
+        .progress-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-weight: bold;
+        }
+ 
+        /* Styles for search inputs and select all buttons */
+        .search-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+ 
+        .search-input {
+            flex-grow: 1;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+ 
+        .select-all-button {
+            margin-left: 10px;
+            padding: 5px 10px;
+            font-size: 14px;
+            cursor: pointer;
+            background-color: #555;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+ 
+        .select-all-button:focus {
+            outline: none;
+        }
+ 
+        .empty-message {
+            text-align: center;
+            color: #777;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Firebase Notification Manager</h1>
+        <div class="header-inputs">
+            <div class="input-group">
+                <input id="title-input" type="text" placeholder="Enter title">
+                <select id="templateDropdown">
+                    <option value=""></option>
+                </select>
+            </div>
+            <input id="message-input" type="text" placeholder="Enter message">
+            <button id="send-button" disabled>Send</button>
+        </div>
+    </header>
+    <div class="container">
+        <div class="part part-1">
+            <h2>List Of Users</h2>
+            <div class="search-container">
+                <input id="search-user-list" class="search-input" type="text" placeholder="Search users">
+                <button id="select-all-users" class="select-all-button">Select All</button>
+            </div>
+            <p id="empty-message-part1" class="empty-message">Users are empty</p>
+            <ul id="user-list"></ul>
+        </div>
+        <div class="part part-2">
+            <button id="move-all-users-button" class="part-button">ALL</button>
+            <button id="move-selected-users-button" class="part-button"> &gt; </button>
+            <button id="move-selected-back-button" class="part-button"> &lt; </button>
+        </div>
+        <div class="part part-3">
+            <h2>Selected Users</h2>
+            <div class="search-container">
+                <input id="search-user-list-part3" class="search-input" type="text" placeholder="Search users">
+                <button id="select-all-users-part3" class="select-all-button">Select All</button>
+            </div>
+            <p id="empty-message-part3" class="empty-message">Users are empty</p>
+            <ul id="user-list-part3"></ul>
+        </div>
+    </div>
+    <footer>
+        <div class="footer-content">
+            <div id="progress-bar" class="progress-bar hidden">
+                <div id="progress" class="progress"></div>
+                <span id="progress-text" class="progress-text"></span>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
